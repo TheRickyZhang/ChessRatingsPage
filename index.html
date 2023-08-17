@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Welcome to the ChessforCharityJax players page!</title>
+  </head>
+  <style>
+    h1 {
+      font-size: 36px;
+    }
+    input,
+    button {
+      font-size: 20px;
+    }
+  </style>
+  <body>
+    <center>
+      <h1>Welcome to the ChessforCharityJax players page!</h1>
+      <!-- sets various HTML elements with respective functions/attributes -->
+      <input type="password" id="password" name="password" placeholder="Enter Password (TD Only)">
+      <button onclick="submitPassword()" style="background-color: #E0ACA1;">Submit</button>
+      <br>
+      <br>
+      <button onclick="proceedGuest()" style="background-color: yellow;">Proceed as Guest</button>
+    </center>
+    <!-- imports the SHA1 script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha1/0.6.0/sha1.min.js"></script>
+    <script> 
+      const correctPassword = "apple";
+      
+      //Encrypts correctPassword string using SHA-1 so that it is not directly visible in the code
+      function encryptPassword(password) {
+        return sha1(password);
+      }
+      
+      //Goes to dataPage and stores the input password and actual password in local storage if they match
+      function submitPassword() {
+        const password = document.getElementById("password").value;
+        if (password === encryptPassword(correctPassword)) {
+          localStorage.setItem("password", password);
+          localStorage.setItem("input", encryptPassword(correctPassword));
+          window.location.href = "datapage.html";
+        } else {
+          alert("Incorrect password. Please try again.");
+        }
+      }
+
+      function proceedGuest() {
+        window.location.href = "datapage.html";
+      }
+    </script>
+  </body>
+</html>
+
+
+
+
+
+
