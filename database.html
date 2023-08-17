@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>ChessforCharityJax Player Ratings</title>
+    <!-- Sets various CSS properties to the table and cells -->
+    <style>
+      table, th, td {
+        border: 1px solid black;
+        text-align: center;
+        font-size: 24px;
+        margin: 0 auto;
+        width: 84%;
+      }
+      td {width: 14%;}
+      .highlighted {background-color: yellow;}
+    </style>
+  </head>
+  <body>
+    <div style="display: flex; justify-content: space-between;">
+      <button onclick="goBack()" style="width: 70px; height: 30px;">Back</button>
+      <p style="font-size: 16px;" id="time">Ratings last updated on:</p>
+    </div>
+    <h1 style="text-align: center; margin-top: -40px;">Our Players</h1>
+    <hr>
+    <!-- Creates buttons that call respective functions to alter the chart/data when clicked, and share a class -->
+    <div id="button-container" style="text-align: center; font-size: 25px;">
+      <button style="height: 25px; width: 140px; display: none;" id="addRow" class="admin-button">Add Player</button>
+      <button style="height: 25px; width: 140px; display: none;" id="removeRow" class="admin-button">Remove Player</button>
+      <button style="height: 25px; width: 140px; display: none;" id="modifyRow" class="admin-button">Modify Player</button>
+      <button style="height: 25px; width: 140px; display: none;" id="empty" class="admin-button">Empty Chart</button>
+    </div>
+    <br>
+    <!-- Declares the primary table the data is displayed in, with six unique column types and clickable cells -->
+    <table style="margin: 0 auto; width: 84%; font-size: 16px;" id="myTable">
+      <thead>
+        <tr>
+          <th style="width: 14%">
+            <button id="fnsort" onclick="sortfn(); highlightColumn(0);" style="font-size: 24px; background-color: #E0ACA1">Sort by First Name</button>
+          </th>
+          <th style="width: 14%">
+            <button id="lnsort" onclick="sortln(); highlightColumn(1)" style="font-size: 24px; background-color: #E0ACA1">Sort by Last Name</button>
+					</th>
+					<th style = " width: 14%">
+            <button id="crsort" onclick="sortcr(); highlightColumn(2)" style="font-size: 24px; background-color: #E0ACA1" ">Sort by Classical Rating</button>
+					</th>
+					<th style = " width: 14%">
+            <button id="qrsort" onclick="sortqr(); highlightColumn(3)" style="font-size: 24px; background-color: #E0ACA1" ">Sort by Quick Rating</button>
+					</th>
+					<th style = " width: 14%">
+            <button id="brsort" onclick="sortbr(); highlightColumn(4)" style="font-size: 24px; background-color: #E0ACA1" ">Sort by Blitz Rating</button>
+					</th>
+					<th style = " width: 14%">
+            <button id="eventsort" onclick="sortev(); highlightColumn(5)" style="font-size: 24px; background-color: #E0ACA1" ">Sort by Events Attended </button>
+					</th>
+				</tr>
+			</thead>
+		<tbody id=" playerlist"></tbody>       
+    </table>
+    <div id="chart"></div>
+    </div>
+    <hr>
+    <p id="result"></p>
+    <hr>
+    <script>
+      //executes code when the window loads to ensure that all elements are loaded
+      window.onload = function() {
+        /**
+        * Represents a data point in chartData, with the following properties:
+        * @property {string} fn - The first name of this player
+        * @property {string} ln - The last name of this player
+        * @property {number} cr - This player's current classical rating
+        * @property {number} qr - This player's current quick rating
+        * @property {number} br - This player's current quick rating
+        * @property {number} ev - The current number of CFCJ events this player has attended
+        */
+        let chartData = [];
+
+        //Takes input variables requiring certain conditions for a new object in chartData. Then, it updates the indexedDB database and renders the chart, adding an additional row
+        document.getElementById("addRow").addEventListener("click", function() {
+          let fn1;
+          while (typeof fn1 !== "string" || fn1 === "" || fn1.charAt(0) !== fn1.charAt(0).toUpperCase()) {
+            fn1 = prompt("Enter first name (string/proper capitalization; break using 'b'):");
+            if (fn1 == "b") {
+              return;
+            }
+          }
+          let ln1;
+          while (typeof ln1 !== "string" || ln1 === "" || ln1.charAt(0) !== ln1.charAt(0).toUpperCase()) {
+            ln1 = prompt("Enter last name (string/proper capitalization; break using 'b')");
+            if (ln1 == "b") {
+              return;
+            }
+          }
+          let cr1;
+          while (isNaN(cr1) || cr1 === "" || cr1> 3000 || cr1 <0) {
+            cr1 = prompt("Enter classical rating (positive num <3000; break using '-1')");
+            cr1 = parseInt(cr1);
+            if (cr1 == -1) {
+              return;
+            }
+          }
+          let qr1;
+          while (isNaN(qr1) || qr1 === "" || qr1> 3000 || qr1 <0) {
+            qr1 = prompt("Enter rapid rating (positive num <3000; break using '-1')");
+            qr1 = parseInt(qr1);
+            if (qr1 == -1) {
+              return;
+            }
+          }
+          let br1;
+          while (isNaN(br1) || br1 === "" || br1> 3000 || br1 <0) {
+            br1 = prompt("Enter quick rating (positive num <3000; break using '-1')");
+            br1 = parseInt(br1);
+            if (br1 == -1) {
+              return;
+            }
+          }
+          let ev1;
+          while (isNaN(ev1) || ev1 === "" || ev1 <1) {
+            ev1 = prompt("Enter number of ChessForCharityJax events attended (number>0; break using '-1')");
+            if (ev1 == -1) {
+              return;
+            }
+          }
+          let player = {
+            fn: fn1,
+            ln: ln1,
+            cr: cr1,
+            qr: qr1,
+            br: br1,
+            ev: ev1
+          };
+          chartData.push(player);
+          //opens a request for the indexedDB database, then executes a transaction to replace it with updated chartData
+          let request = window.indexedDB.open("chartData", 1);
+          request.onsuccess = function(event) {
+            let db = event.target.result;
+            let transaction = db.transaction(["chart"], "readwrite");
+            let objectStore = transaction.objectStore("chart");
+            objectStore.clear();
+            for (let i = 0; i <chartData.length; i++) {
+              objectStore.add(chartData[i]);
+            }
+          };
+          renderChart(chartData);
+        });
+        
+        //takes an index as input, removes that corrosponding object from chartData and the indexedDB database, then updates the chart, removing a row
+        document.getElementById("removeRow").addEventListener("click", function() {
+          let index = prompt("Enter the current index of the player you want to remove:");
+          index = parseInt(index);
+          if (isNaN(index) || index <0 || index> chartData.length - 1) {
+            return;
+          }
+          chartData.splice(index, 1);
+          let request = window.indexedDB.open("chartData", 1);
+          request.onsuccess = function(event) {
+            let db = event.target.result;
+            let transaction = db.transaction(["chart"], "readwrite");
+            let objectStore = transaction.objectStore("chart");
+            objectStore.clear();
+            for (let i = 0; i <chartData.length; i++) {
+              objectStore.add(chartData[i]);
+            }
+          };
+          request.onerror = function(event) {
+            alert("error getting data from indexedDB " + event);
+          }
+          renderChart(chartData);
+        });
+        //Takes an index and input variables requiring certain conditions except first/last names, then updates those values into chartData/indexedDB database, modifying the specified index displayed in the chart
+        document.getElementById("modifyRow").addEventListener("click", function() {
+          let index = prompt("Enter the current index of the player you want to modify:");
+          index = parseInt(index);
+          if (isNaN(index) || index <0 || index> chartData.length - 1) {
+            return;
+          }
+          let row = chartData[index];
+          let cr1;
+          cr1 = parseInt(cr1);
+          while (isNaN(cr1) || cr1 === "" || cr1> 3000 || cr1 <0) {
+            cr1 = prompt("Enter classical rating (positive num <3000; break using 'b'; no change using n)");
+            if (cr1 == "b") {
+              return;
+            }
+            if (cr1 == "n") {
+              cr1 = row.cr;
+            }
+          }
+          let qr1;
+          qr1 = parseInt(qr1);
+          while (isNaN(qr1) || qr1 === "" || qr1> 3000 || qr1 <0) {
+            qr1 = prompt("Enter rapid rating (positive num <3000; break using 'b'; no change using n)");
+            if (qr1 == "b") {
+              return;
+            }
+            if (qr1 == "n") {
+              qr1 = row.qr;
+            }
+          }
+          let br1;
+          br1 = parseInt(br1);
+          while (isNaN(br1) || br1 === "" || br1> 3000 || br1 <0) {
+            br1 = prompt("Enter quick rating (positive num <3000; break using 'b'; no change using n)");
+            if (br1 == "b") {
+              return;
+            }
+            if (br1 == "n") {
+              br1 = row.br;
+            }
+          }
+          let ev1;
+          ev1 = parseInt(ev1);
+          while (isNaN(ev1) || ev1 === "" || ev1 <1) {
+            ev1 = prompt("Enter number of ChessForCharityJax events attended (number>0; break using 'b'; no change using n)");
+            if (ev1 == "b") {
+              return;
+            }
+            if (ev1 == "n") {
+              ev1 = row.ev;
+            }
+          };
+          let fn1 = row.fn;
+          let ln1 = row.ln;
+          chartData[index] = {fn: fn1, ln: ln1, cr: cr1, qr: qr1, br: br1, ev: ev1};
+          let request = window.indexedDB.open("chartData", 1);
+          request.onsuccess = function(event) {
+            let db = event.target.result;
+            let transaction = db.transaction(["chart"], "readwrite");
+            let objectStore = transaction.objectStore("chart");
+            objectStore.clear();
+            for (let i = 0; i <chartData.length; i++) {
+              objectStore.add(chartData[i]);
+            }
+          };S
+          renderChart(chartData);
+          highlightRow(index);
+        });
+        
+        //empties the chart and database to a blank state, with confirmation from user
+        document.getElementById("empty").addEventListener("click", function() {
+          let confirm = prompt("Are you sure you want to empty the chart to its original data? Type 'Yes' to confirm");
+          if (confirm !== "Yes") {
+            return;
+          }
+          let request = window.indexedDB.open("chartData", 1);
+          request.onsuccess = function(event) {
+            let db = event.target.result;
+            let transaction = db.transaction(["chart"], "readwrite");
+            let objectStore = transaction.objectStore("chart");
+            objectStore.clear();
+          }
+          chartData = [];
+          renderChart(chartData);
+        });
+        
+        //first creates the IndexedDB database (version 1) and sets it properties; this database is continually used and referenced in many functions to be synchronized with chartData, or vice versa
+        let request = window.indexedDB.open("chartData", 1);
+        request.onupgradeneeded = function(event) {
+          let db = event.target.result;
+          let objectStore = db.createObjectStore("chart", {
+            keyPath: "id",
+            autoIncrement: true
+          });
+        };
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          chartData = [];
+          objectStore.openCursor().onsuccess = function(event) {
+            let cursor = event.target.result;
+            if (cursor) {
+              chartData.push(cursor.value);
+              cursor.continue();
+            }
+            else {
+              renderChart(chartData);
+            }
+          }
+        }
+
+        //Checks whether the input password was correct, then shows/hides the admin buttons on the webpage corrospondingly
+        const buttons = document.getElementsByClassName("admin-button");
+        if (localStorage.getItem("password") == (localStorage.getItem("input")) && localStorage.getItem("password") != null) {
+          for (let i = 0; i <buttons.length; i++) {
+            buttons[i].style.display = "inline";
+          }
+        }
+        else{
+          for (let i = 0; i <buttons.length; i++) {
+            buttons[i].style.display = "none";
+          }
+        }
+        for (let i = 0; i <buttons.length; i++) {
+          buttons[i].addEventListener("click", setUpdateTime);
+        }
+        renderChart(chartData);
+      }
+    
+      function goBack() {
+        window.location.href = "index.html";
+        localStorage.setItem("password", "");
+      }
+      
+      function setUpdateTime() {
+        const now = new Date();
+        const request = indexedDB.open("myDatabase", 1);
+        request.onerror = function(event) {
+        console.error("Could not open database");
+      };
+      request.onsuccess = function(event) {
+        const db = event.target.result;
+        const transaction = db.transaction("updateTime", "readwrite");
+        const store = transaction.objectStore("updateTime");
+        const data = { id: 1, timestamp: now.getTime() };
+        store.put(data);
+        transaction.oncomplete = function() {
+          db.close();
+        };
+      };
+    }
+
+      //Various sorting functions that retrieve data from the IndexedDB database, adds it to chartData, sorts the student objects by a given variable, then displays the updated chart
+      function sortfn() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.fn> b.fn) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(0);
+          }
+          request.onerror = function(event) {
+            alert("error getting data from indexedDB " + event);
+          }
+        }
+        request.onerror = function(event) {
+          alert("error opening indexedDB " + event);
+        }
+      }
+      function sortln() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.ln> b.ln) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(1);
+          }
+          request.onerror = function(event) {
+            alert("Error getting data from indexedDB " + event);
+          }
+        }
+        request.onerror = function(event) {
+          alert("Error getting data from indexedDB " + event);
+        }
+      }
+      function sortcr() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.cr <= b.cr) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(2);
+          }
+          request.onerror = function(event) {
+            alert("Error getting data from indexedDB " + event);
+          }
+        }
+      }
+      function sortqr() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.qr <= b.qr) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(3);
+          }
+          request.onerror = function(event) {
+            alert("error getting data from indexedDB " + event);
+          }
+        }
+      }
+      function sortbr() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.br <= b.br) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(4);
+          }
+          request.onerror = function(event) {
+            alert("error getting data from indexedDB " + event);
+          }
+        }
+      }
+      function sortev() {
+        let request = window.indexedDB.open("chartData", 1);
+        request.onsuccess = function(event) {
+          let db = event.target.result;
+          let transaction = db.transaction(["chart"], "readonly");
+          let objectStore = transaction.objectStore("chart");
+          let request = objectStore.getAll();
+          request.onsuccess = function(event) {
+            chartData = event.target.result;
+            chartData.sort((a, b) => (a.ev <= b.ev) ? 1 : -1);
+            renderChart(chartData);
+            highlightColumn(5);
+          }
+          request.onerror = function(event) {
+            alert("error getting data from indexedDB " + event);
+          }
+        }
+      }
+     
+      //Changes the background color of a given chart column to yellow
+      function highlightColumn(column) {
+        let table = document.getElementById("chart");
+        let rows = table.getElementsByTagName("tr");
+        for (let i = 0; i <rows.length; i++) {
+          let cells = rows[i].getElementsByTagName("td");
+          cells[column].style.backgroundColor = "yellow";
+        }
+      }
+      
+      //Changes the background color of a given chart row to yellow
+      function highlightRow(row) {
+        let table = document.getElementById("chart");
+        let rows = table.getElementsByTagName("tr");
+        for (let i = 0; i <rows.length; i++) {
+          if (i == row) {
+            rows[i].style.backgroundColor = "yellow";
+          } else {
+            rows[i].style.backgroundColor = "white";
+          }
+        }
+      }
+
+      //displays the HTML chart based on the data stored in the parameter, which is always called with chartData, and ensures all clickable functionality with the chart's cells
+      function renderChart(data) {
+        let chartDiv = document.getElementById("chart");
+        let chartHTML = "<table>";
+        //Uses innerHTML to construct the chart and display the corrosponding list data within each cell in text form
+        for (let i = 0; i <data.length; i++) {
+          chartHTML += "<tr>";
+          chartHTML += "<td class='fn' data-br='" + data[i].br + "' data-qr='" + data[i].qr + "' data-cr='" + data[i].cr + "' data-ev='" + data[i].ev + "'>" + data[i].fn + "</td>";
+          chartHTML += "<td class='ln' data-br='" + data[i].br + "' data-qr='" + data[i].qr + "' data-cr='" + data[i].cr + "' data-ev='" + data[i].ev + "'>" + data[i].ln + "</td>";
+          chartHTML += "<td class='cr' data-br='" + data[i].br + "' data-qr='" + data[i].qr + "' data-cr='" + data[i].cr + "' data-ev='" + data[i].ev + "'>" + data[i].cr + "</td>";
+          chartHTML += "<td class='qr' data-br='" + data[i].br + "' data-qr='" + data[i].qr + "' data-cr='" + data[i].cr + "' data-ev='" + data[i].ev + "'>" + data[i].qr + "</td>";
+          chartHTML += "<td class='br' data-br='" + data[i].br + "' data-qr='" + data[i].qr + "' data-cr='" + data[i].cr + "' data-ev='" + data[i].ev + "'>" + data[i].br + "</td>";
+          chartHTML += "<td class='ev' data-events='" + data[i].ev + "'>" + data[i].ev + "</td>";
+          chartHTML += "</tr>";
+        }
+        chartHTML += "</table>";
+        chartDiv.innerHTML = chartHTML;
+        let resultElement = document.getElementById("result");
+
+        //displays/calculates average rating, CFCJ score, and ideal opponent in text below the chart when any first name cell is clicked
+        let fnCells = document.getElementsByClassName("fn");
+        for (let i = 0; i <fnCells.length; i++) {
+          fnCells[i].addEventListener("click", function() {
+            //retrieves data for each player
+            let firstName = this.innerHTML;
+            let first = data[i].fn;
+            let last = data[i].ln;
+            let blitz = this.dataset.br;
+            let quick = this.dataset.qr;
+            let classical = this.dataset.cr;
+            let events = this.dataset.ev;
+            let avgRating = ((parseFloat(blitz) + parseFloat(quick) + parseFloat(classical)) / 3).toFixed(2);
+            let CFCJscore = ((Math.sqrt(parseFloat(blitz) / 10) * Math.sqrt(parseFloat(quick) / 10) * Math.sqrt(parseFloat(classical) / 10) * Math.log(events + 1)) / 1000).toFixed(2);
+            //calculates ideal opponent by determining the other CFCJ player that results in the smallest sum of square residuals between each players' ratings in classical, quick, and blitz
+            let minResidual = Number.MAX_SAFE_INTEGER;
+            let idealopponent = "";
+            for (let j = 0; j <data.length; j++) {
+              if (i != j) {
+                let squareResidualDiff = Math.pow(parseFloat(data[j].cr) - parseFloat(classical), 2) + Math.pow(parseFloat(data[j].qr) - parseFloat(quick), 2) + Math.pow(parseFloat(data[j].br) - parseFloat(blitz), 2);
+                if (squareResidualDiff <minResidual) {
+                  minResidual = squareResidualDiff;
+                  idealopponent = data[j].fn + " " + data[j].ln;
+                }
+              }
+            }
+            //prints statistics using innerHTML
+            let resultText = "Average rating for " + first + " " + last + ": " + avgRating + " <br> ChessforCharityJax score: " + CFCJscore + " <br> Their ideal opponent is: " + idealopponent;
+            resultElement.innerHTML = resultText;
+            resetCellBackgrounds();
+            fnCells[i].style.backgroundColor = "yellow";
+          });
+        }
+
+        //does the same calculations as above, but applies it to last name cells
+        let lnCells = document.getElementsByClassName("ln");
+        for (let i = 0; i <lnCells.length; i++) {
+          lnCells[i].addEventListener("click", function() {
+            let firstName = this.innerHTML;
+            let first = data[i].fn;
+            let last = data[i].ln;
+            let blitz = this.dataset.br;
+            let quick = this.dataset.qr;
+            let classical = this.dataset.cr;
+            let events = this.dataset.ev;
+            let avgRating = ((parseFloat(blitz) + parseFloat(quick) + parseFloat(classical)) / 3).toFixed(2);
+            let CFCJscore = ((Math.sqrt(parseFloat(blitz) / 10) * Math.sqrt(parseFloat(quick) / 10) * Math.sqrt(parseFloat(classical) / 10) * Math.log(events + 1)) / 1000).toFixed(2);
+            let minResidual = Number.MAX_SAFE_INTEGER;
+            let idealopponent = "";
+            for (let j = 0; j <data.length; j++) {
+              if (i != j) {
+                let squareResidualDiff = Math.pow(parseFloat(data[j].cr) - parseFloat(classical), 2) + Math.pow(parseFloat(data[j].qr) - parseFloat(quick), 2) + Math.pow(parseFloat(data[j].br) - parseFloat(blitz), 2);
+                if (squareResidualDiff <minResidual) {
+                  minResidual = squareResidualDiff;
+                  idealopponent = data[j].fn + " " + data[j].ln;
+                }
+              }
+            }
+            let resultText = "Average rating for " + first + " " + last + ": " + avgRating + " <br> ChessforCharityJax score: " + CFCJscore + " <br> Their ideal opponent is: " + idealopponent;
+            resultElement.innerHTML = resultText;
+            let cells = document.getElementsByTagName("td");
+            resetCellBackgrounds();
+            lnCells[i].style.backgroundColor = "yellow";
+          });
+        }
+
+        //displays/calculates percentiles for classical ratings for each player when a classical rating cell is clicked
+        let crCells = document.getElementsByClassName("cr");
+        for (let i = 0; i < crCells.length; i++) {
+          crCells[i].addEventListener("click", function() {
+            let percentile = getPercentile(parseFloat(this.dataset.cr), "cr");
+            let firstName = this.parentNode.querySelector(".fn").innerHTML;
+            let lastName = this.parentNode.querySelector(".ln").innerHTML;
+            let rating = this.innerHTML;
+            let resultText = firstName + " " + lastName + "'s classical rating of " + rating + " is better than " + percentile + "% of ChessforCharityJax players.";
+            resultElement.innerHTML = resultText;
+            resetCellBackgrounds();
+            this.style.backgroundColor = "yellow";
+          });
+        } 
+        //displays/calculates percentiles for quick ratings for each player when a quick rating cell is clicked
+        let qrCells = document.getElementsByClassName("qr");
+        for (let i = 0; i < qrCells.length; i++) {
+          qrCells[i].addEventListener("click", function() {
+            let percentile = getPercentile(parseFloat(this.dataset.qr), "qr");
+            let firstName = this.parentNode.querySelector(".fn").innerHTML;
+            let lastName = this.parentNode.querySelector(".ln").innerHTML;
+            let rating = this.innerHTML;
+            let resultText = firstName + " " + lastName + "'s quick rating of " + rating + " is better than " + percentile + "% of ChessforCharityJax players.";
+            resultElement.innerHTML = resultText;
+            resetCellBackgrounds();
+            this.style.backgroundColor = "yellow";
+          });
+        } 
+        //displays/calculates percentiles for blitz ratings for each player when a bllitz rating cell is clicked
+        let brCells = document.getElementsByClassName("br");
+        for (let i = 0; i < brCells.length; i++) {
+          brCells[i].addEventListener("click", function() {
+            let percentile = getPercentile(parseFloat(this.dataset.br), "br");
+            let firstName = this.parentNode.querySelector(".fn").innerHTML;
+            let lastName = this.parentNode.querySelector(".ln").innerHTML;
+            let rating = this.innerHTML;
+            let resultText = firstName + " " + lastName + "'s blitz rating of " + rating + " is better than " + percentile + "% of ChessforCharityJax players.";
+            resultElement.innerHTML = resultText;
+            resetCellBackgrounds();
+            this.style.backgroundColor = "yellow";
+          });
+        } 
+
+        //displays/calculates number of other players with the same number of events attended as the one in clicked events attended cell, and the averaage ratings of those players
+        let evCells = document.getElementsByClassName("ev");
+        for (let i = 0; i <evCells.length; i++) {
+          evCells[i].addEventListener("click", function() {
+            //sets temporary variables used to keep track of the number/ratings of other players with same ev value
+            let count = 0;
+            let events = this.getAttribute("data-events");
+            let blitzSum = 0;
+            let quickSum = 0;
+            let classicalSum = 0;
+            for (let j = 0; j <data.length; j++) {
+              if (data[j].ev == events) {
+                count++;
+                blitzSum += data[j].br;
+                quickSum += data[j].qr;
+                classicalSum += data[j].cr;
+              }
+            }
+            if (count == 0) {
+              alert(error);
+            }
+            let avgBlitz = (parseFloat(blitzSum) / count).toFixed(2);
+            let avgQuick = (parseFloat(quickSum) / count).toFixed(2);
+            let avgClassical = (parseFloat(classicalSum) / count).toFixed(2);
+            let avgRating = ((parseFloat(avgBlitz) + parseFloat(avgQuick) + parseFloat(avgClassical)) / 3).toFixed(2);
+            //prints statistics using innerHTML
+            let resultText = "Number of players with " + events + " events: " + count + " <br> Average ratings: <br> Blitz: " + avgBlitz + " <br> Quick: " + avgQuick + " <br> Classical: " + avgClassical + " <br> Overall: " + avgRating;
+            resultElement.innerHTML = resultText;
+            resetCellBackgrounds();
+            evCells[i].style.backgroundColor = "yellow";
+          });
+        }
+
+      //Calculates the percentile for a player's rating by retreiving all ratings of the same type, sorting them in a list, and returning the relative position of the player's rating
+        function getPercentile(value, attribute) {
+          let scores = [];
+          for (let i = 0; i < data.length; i++) {
+            scores.push(parseFloat(data[i][attribute]));
+          }
+          scores.sort(function(a, b) { return b - a });
+          let rank = scores.indexOf(value) + 1;
+          let percentile = Math.round((scores.length - rank + 1) / scores.length * 100);
+          return percentile;
+        }
+        
+        //iterates through all table cells and sets their background to white
+        function resetCellBackgrounds() {
+          let cells = document.getElementsByTagName("td");
+          for (let i = 0; i < cells.length; i++) {
+            cells[i].style.backgroundColor = "white";
+          }
+        }
+        
+      }     
+    </script>
+  </body>
+</html>
